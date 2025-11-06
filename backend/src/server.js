@@ -34,13 +34,22 @@ const sanitizeBody = (body) => {
   return sanitized;
 };
 
-// 요청 로거 (기존 코드와 동일)
+// 요청 로거 (수정된 코드)
 const requestLogger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.json()
   ),
-  transports: [new winston.transports.File({ filename: 'requests.log' })],
+  transports: [
+    new winston.transports.File({ filename: 'requests.log' }),
+    // Vercel CLI에 로그를 출력하기 위해 콘솔 전송 추가
+    new winston.transports.Console({
+        format: winston.format.combine(
+            winston.format.timestamp(),
+            winston.format.json() // JSON 형식으로 출력하여 Vercel에서 파싱하기 용이하게 함
+        )
+    })
+  ],
 });
 
 const app = express();

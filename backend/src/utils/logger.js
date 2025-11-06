@@ -10,6 +10,7 @@ const logger = winston.createLogger({
   level: 'info',
   format: winston.format.json(),
   transports: [
+    // 1. 파일 로깅 (로컬 개발 환경 및 로그 보관용)
     new winston.transports.File({
       filename: LOG_FILE,
       format: winston.format.combine(
@@ -23,12 +24,7 @@ const logger = winston.createLogger({
         })
       ),
     }),
-  ],
-});
-
-// 프로덕션 환경이 아닐 경우, 개발 편의성을 위해 콘솔에도 로그를 출력합니다.
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(
+    // 2. 콘솔 로깅 (Vercel CLI 및 실시간 디버깅용으로 항상 활성화)
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
@@ -41,7 +37,7 @@ if (process.env.NODE_ENV !== 'production') {
         })
       ),
     })
-  );
-}
+  ],
+});
 
 module.exports = logger;
