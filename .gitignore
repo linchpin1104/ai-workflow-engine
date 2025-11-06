@@ -25,3 +25,4 @@ frontend/.env.local
 /history
 /workflow_json
 *.txt
+.vercel

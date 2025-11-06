@@ -95,4 +95,4 @@ const closeDb = async () => {
   logger.info('Database pool has ended.')
 }
 
-module.exports = { db, initDb, closeDb }
+module.exports = { db, pool, initDb, closeDb };
