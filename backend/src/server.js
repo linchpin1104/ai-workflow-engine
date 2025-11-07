@@ -34,20 +34,20 @@ const sanitizeBody = (body) => {
   return sanitized;
 };
 
-// 요청 로거 (수정된 코드)
+// 요청 로거 (Vercel 환경에 최적화 - 파일 로깅 제거)
+// Vercel에서는 파일 시스템이 읽기 전용이므로 콘솔 로깅만 사용
 const requestLogger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.json()
   ),
   transports: [
-    new winston.transports.File({ filename: 'requests.log' }),
-    // Vercel CLI에 로그를 출력하기 위해 콘솔 전송 추가
+    // Vercel 환경에서는 콘솔 로그만 사용
     new winston.transports.Console({
-        format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json() // JSON 형식으로 출력하여 Vercel에서 파싱하기 용이하게 함
-        )
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json() // JSON 형식으로 출력하여 Vercel에서 파싱하기 용이하게 함
+      )
     })
   ],
 });
@@ -57,13 +57,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 로깅 미들웨어 (기존 코드와 동일)
+// 로깅 미들웨어 (Vercel 환경에 최적화)
 app.use((req, res, next) => {
   const start = Date.now();
 
   onFinished(res, () => {
     const duration = Date.now() - start;
-    requestLogger.info({
+    // Vercel 환경에서는 파일 로깅을 제거하고 콘솔만 사용
+    const logData = {
       timestamp: new Date().toISOString(),
       method: req.method,
       url: req.originalUrl,
@@ -72,10 +73,33 @@ app.use((req, res, next) => {
       duration: `${duration}ms`,
       headers: req.headers,
       body: sanitizeBody(req.body),
-    });
+    };
+    // Vercel에서는 콘솔 로그만 사용
+    console.log(JSON.stringify(logData));
   });
 
   next();
+});
+
+// 2. Vercel 배포를 위한 수정 부분
+// 데이터베이스 초기화를 lazy하게 처리 (Vercel 서버리스 환경에 최적화)
+let dbInitialized = false;
+const initializeDbOnce = async () => {
+  if (!dbInitialized) {
+    await initDb();
+    dbInitialized = true;
+  }
+};
+
+// 데이터베이스 초기화 미들웨어 (라우트 설정 전에 위치)
+app.use(async (req, res, next) => {
+  try {
+    await initializeDbOnce();
+    next();
+  } catch (error) {
+    logger.error('Database initialization failed', { error: error.message });
+    res.status(500).json({ message: '데이터베이스 초기화에 실패했습니다.' });
+  }
 });
 
 // API 라우트 설정 (기존 코드와 동일)
@@ -102,23 +126,19 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: '서버 내부 오류가 발생했습니다.' });
 });
 
-// 2. Vercel 배포를 위한 수정 부분
-// initDb()가 완료된 후 app 객체를 export 하는 비동기 함수를 만듭니다.
-const startServer = async () => {
-  // initDb()가 Promise를 반환하므로 await으로 기다립니다.
-  await initDb();
-  return app;
-};
-
 // 로컬 개발 환경(NODE_ENV가 'production'이 아닐 때)에서만 직접 서버를 실행합니다.
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
-  startServer().then((app) => {
+  initializeDbOnce().then(() => {
     app.listen(PORT, () => {
       logger.info(`Backend server is running on http://localhost:${PORT}`);
     });
+  }).catch((error) => {
+    logger.error('Failed to start server', { error: error.message });
+    process.exit(1);
   });
 }
 
 // Vercel이 이 부분을 가져가서 서버를 실행합니다.
-module.exports = startServer();
+// Express 앱을 직접 export (Vercel이 자동으로 서버리스 함수로 변환)
+module.exports = app;
