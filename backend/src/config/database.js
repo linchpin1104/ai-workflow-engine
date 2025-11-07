@@ -6,12 +6,29 @@ const bcrypt = require('bcryptjs');
 const logger = require('../utils/logger');
 
 // Vercel이 자동으로 환경 변수를 주입해 줍니다.
+// POSTGRES_URL 환경 변수 검증
+if (!process.env.POSTGRES_URL) {
+  logger.error(
+    'FATAL ERROR: POSTGRES_URL environment variable is not defined.',
+  );
+  throw new Error(
+    'POSTGRES_URL environment variable is required. Please set it in Vercel dashboard.',
+  );
+}
+
 const pool = new Pool({
   connectionString: process.env.POSTGRES_URL,
   // Vercel 환경에서는 SSL이 필요합니다.
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl:
+    process.env.POSTGRES_URL && process.env.POSTGRES_URL.includes('sslmode')
+      ? {
+          rejectUnauthorized: false,
+        }
+      : process.env.NODE_ENV === 'production'
+        ? {
+            rejectUnauthorized: false,
+          }
+        : false,
 });
 
 const db = {

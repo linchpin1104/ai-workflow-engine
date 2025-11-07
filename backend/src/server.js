@@ -78,8 +78,20 @@ app.use(async (req, res, next) => {
     await initializeDbOnce();
     next();
   } catch (error) {
-    logger.error('Database initialization failed', { error: error.message });
-    res.status(500).json({ message: '데이터베이스 초기화에 실패했습니다.' });
+    logger.error('Database initialization failed', {
+      error: error.message,
+      stack: error.stack,
+      postgresUrl: process.env.POSTGRES_URL
+        ? 'SET'
+        : 'NOT SET',
+    });
+    res.status(500).json({
+      message: '데이터베이스 초기화에 실패했습니다.',
+      error:
+        process.env.NODE_ENV === 'development'
+          ? error.message
+          : 'Please check your database configuration.',
+    });
   }
 });
 
