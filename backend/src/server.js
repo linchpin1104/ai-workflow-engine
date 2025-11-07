@@ -36,7 +36,10 @@ const sanitizeBody = (body) => {
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+// Vercel 서버리스 함수의 요청 본문 크기 제한: 4.5MB (Hobby 플랜)
+// PDF 파일 업로드를 위해 limit을 4MB로 설정
+app.use(express.json({ limit: '4mb' }));
+app.use(express.urlencoded({ extended: true, limit: '4mb' }));
 
 // 로깅 미들웨어 (Vercel 환경에 최적화)
 app.use((req, res, next) => {
@@ -123,6 +126,16 @@ app.use((err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
   }
+  
+  // PayloadTooLargeError 처리
+  if (err.type === 'entity.too.large' || err.message === 'request entity too large') {
+    return res.status(413).json({
+      message: '요청 크기가 너무 큽니다. 파일 크기를 줄이거나 더 작은 파일을 사용해주세요.',
+      error: 'Request entity too large',
+      maxSize: '4MB',
+    });
+  }
+  
   res.status(500).json({ message: '서버 내부 오류가 발생했습니다.' });
 });
 
