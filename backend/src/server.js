@@ -78,19 +78,26 @@ app.use(async (req, res, next) => {
     await initializeDbOnce();
     next();
   } catch (error) {
+    // 디버깅: 환경 변수 확인
+    const envCheck = {
+      postgresUrl: process.env.POSTGRES_URL ? 'SET' : 'NOT SET',
+      nodeEnv: process.env.NODE_ENV || 'NOT SET',
+      vercelEnv: process.env.VERCEL_ENV || 'NOT SET',
+    };
+    
     logger.error('Database initialization failed', {
       error: error.message,
       stack: error.stack,
-      postgresUrl: process.env.POSTGRES_URL
-        ? 'SET'
-        : 'NOT SET',
+      ...envCheck,
     });
+    
     res.status(500).json({
       message: '데이터베이스 초기화에 실패했습니다.',
       error:
         process.env.NODE_ENV === 'development'
           ? error.message
           : 'Please check your database configuration.',
+      debug: process.env.NODE_ENV === 'development' ? envCheck : undefined,
     });
   }
 });

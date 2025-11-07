@@ -7,28 +7,32 @@ const logger = require('../utils/logger');
 
 // Vercel이 자동으로 환경 변수를 주입해 줍니다.
 // POSTGRES_URL 환경 변수 검증
-if (!process.env.POSTGRES_URL) {
+const postgresUrl = process.env.POSTGRES_URL;
+
+if (!postgresUrl) {
   logger.error(
     'FATAL ERROR: POSTGRES_URL environment variable is not defined.',
   );
+  logger.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('POSTGRES') || key.includes('DATABASE')));
   throw new Error(
     'POSTGRES_URL environment variable is required. Please set it in Vercel dashboard.',
   );
 }
 
+// 디버깅: 연결 문자열 확인 (비밀번호 마스킹)
+const maskedUrl = postgresUrl.replace(/:[^:@]+@/, ':****@');
+logger.info('Database connection string:', maskedUrl);
+
 const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL,
+  connectionString: postgresUrl,
   // Vercel 환경에서는 SSL이 필요합니다.
-  ssl:
-    process.env.POSTGRES_URL && process.env.POSTGRES_URL.includes('sslmode')
-      ? {
-          rejectUnauthorized: false,
-        }
-      : process.env.NODE_ENV === 'production'
-        ? {
-            rejectUnauthorized: false,
-          }
-        : false,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+  // Neon pooler를 사용하는 경우 connection timeout 설정
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  max: 10, // 서버리스 환경에서는 작은 풀 크기 사용
 });
 
 const db = {
