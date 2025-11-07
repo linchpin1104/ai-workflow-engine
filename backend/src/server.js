@@ -6,7 +6,6 @@ const cors = require('cors');
 // 1. closeDb는 Vercel 환경에서 직접 호출할 필요가 없어졌으므로 제거합니다.
 const { initDb } = require('./config/database');
 const logger = require('./utils/logger');
-const winston = require('winston');
 const onFinished = require('on-finished');
 
 if (!process.env.JWT_SECRET) {
@@ -33,24 +32,6 @@ const sanitizeBody = (body) => {
   }
   return sanitized;
 };
-
-// 요청 로거 (Vercel 환경에 최적화 - 파일 로깅 제거)
-// Vercel에서는 파일 시스템이 읽기 전용이므로 콘솔 로깅만 사용
-const requestLogger = winston.createLogger({
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    // Vercel 환경에서는 콘솔 로그만 사용
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.json() // JSON 형식으로 출력하여 Vercel에서 파싱하기 용이하게 함
-      )
-    })
-  ],
-});
 
 const app = express();
 
@@ -129,14 +110,16 @@ app.use((err, req, res, next) => {
 // 로컬 개발 환경(NODE_ENV가 'production'이 아닐 때)에서만 직접 서버를 실행합니다.
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
-  initializeDbOnce().then(() => {
-    app.listen(PORT, () => {
-      logger.info(`Backend server is running on http://localhost:${PORT}`);
+  initializeDbOnce()
+    .then(() => {
+      app.listen(PORT, () => {
+        logger.info(`Backend server is running on http://localhost:${PORT}`);
+      });
+    })
+    .catch((error) => {
+      logger.error('Failed to start server', { error: error.message });
+      process.exit(1);
     });
-  }).catch((error) => {
-    logger.error('Failed to start server', { error: error.message });
-    process.exit(1);
-  });
 }
 
 // Vercel이 이 부분을 가져가서 서버를 실행합니다.
